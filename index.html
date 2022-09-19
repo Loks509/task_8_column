@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Головоломка</title>
+</head>
+<body>
+    <style>
+        .circle{
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            background-image: url('photo3.jpg');
+            background-size: cover;
+            background-color: aquamarine;
+        }
+        .circle.active{
+            background-color: blue;
+            background-image: url('photo1.jpeg');
+            background-size: cover;
+        }
+        .not-visible{
+            display: inline-block;
+            background-image: url('photo_c.jpg');
+            background-size: cover;
+            /* opacity: 0; */
+            width: 50px;
+            height: 50px;
+        }
+        .row-circle .circle{
+            display: inline-block;
+        }
+        .mode-check{
+            background-color: greenyellow;
+            width: 5px;
+            height: 5px;
+        }
+        .mode-check.active{
+            background-color: blanchedalmond;
+        }
+    </style>
+    <div style="display: inline-block;">
+        <div class="row-circle">
+            <div id="c_0" class="circle"></div>
+            <div id="c_1" class="circle"></div>
+            <div id="c_2" class="circle"></div>
+        </div>
+        <div class="row-circle">
+            <div id="c_7" class="circle"></div>
+            <div class="not-visible"></div>
+            <div id="c_3" class="circle"></div>
+        </div>
+        <div class="row-circle">
+            <div id="c_6" class="circle"></div>
+            <div id="c_5" class="circle"></div>
+            <div id="c_4" class="circle"></div>
+        </div>
+    </div>
+    <div id="history_id" style="display: inline-block;">
+
+    </div>
+    <div onclick="reset_f(pole)">-Reset-</div>
+    <div onclick="invert_mode_f()">-Mode-<div id="mode_c" class="mode-check" style="display:inline-block"></div></div>
+    <div onclick="random_f(pole)">-random-</div>
+    <div onclick="step_f(pole)">-Step-</div>
+    <div onclick="automat_f()">-Automat-</div>
+    
+    <script>
+        let game = true;
+        let pole = [false, false, false, false, false, false, false, false];
+        function round_n(i){
+            const len = document.querySelectorAll('.circle').length;
+            if(i > len - 1)         return i - len;
+            else if(i < 0)          return len + i;
+            else                    return i;
+        }
+
+        function get_id(element){
+            return Number(element.id.split('_')[1])
+        }
+        
+        function set_pole(pole){
+            const elements = document.querySelectorAll('.circle');
+            elements.forEach((val)=>{
+                let id = get_id(val);
+                if(pole[id]){
+                    val.classList.add('active');
+                }else{
+                    val.classList.remove('active');
+                }
+            });
+        }
+
+        function invert_mode_f(){
+            function invert_class(element){
+                if(element.classList.contains('active')){
+                    element.classList.remove('active');
+                }else{
+                    element.classList.add('active');
+                }
+            }
+            game = !game;
+            invert_class(mode_c)
+        }
+
+        function reset_f(_pole){
+            const len = document.querySelectorAll('.circle').length;
+            for(let i = 0; i < len; i++){
+                _pole[i] = false;
+            }
+            set_pole(_pole);
+        }
+
+        function random_f(_pole){
+            reset_f(_pole);
+            function getRandomInt(max) {
+                return Math.floor(Math.random() * max);
+            }
+            count = getRandomInt(9);    //от нуля до 8
+            for(let i = 0; i < count; i++){
+                _pole[getRandomInt(8)]=true;
+            }
+            set_pole(_pole);
+        }
+
+        function click_f(_pole, id){
+            _pole[round_n(id-1)] = !_pole[round_n(id-1)];
+            _pole[round_n(id)] = !_pole[round_n(id)];
+            _pole[round_n(id+1)] = !_pole[round_n(id+1)];
+            set_pole(_pole);
+        }
+        
+        const elements = document.querySelectorAll('.circle');
+
+        elements.forEach((val)=>{
+            val.addEventListener('click', (e)=>{
+                let curr_element = e.target;
+                let id = get_id(curr_element);
+                if(game){
+                    click_f(pole, id);
+                }else{
+                    pole[id] = !pole[id];
+                }
+                set_pole(pole);
+            });
+        });
+
+        function check_win(pole){
+            let win = true;
+            pole.forEach((val)=>{
+                win = win && val;
+            });
+            return win;
+        }
+        
+        function find_first_f(pole){
+            for(let i = 0; i < pole.length; i++){
+                if(pole[i])
+                    return i;
+            }
+        }
+
+        function click_by_mask(_mask, _pole, _shift = 0){        //находит по маске необходимую зону (true если нашел)
+            for(let i = 0; i < _pole.length; i++){
+                let tmp_bool = true;
+                let tmp_counter = 0;
+                _mask.forEach((val)=>{
+                    tmp_bool = tmp_bool && (_pole[round_n(i + tmp_counter)] == Boolean(val));
+                    tmp_counter++;
+                });
+                if(tmp_bool){
+                    click_f(_pole, i + _shift);
+                    complete_click = true;
+                    return true;
+                }
+            }
+            return false;
+        }
+    
+        function status_f(pole){
+            let status = {};
+            status['count'] = 0;
+            status['delts'] = [];
+            status['max_delta'] = 0;
+            status['min_delta'] = 8;
+            pole.forEach((val)=>{
+                if(val)
+                    status['count']++;
+            });
+            let count = 0;
+            let ostatok = 0;
+            let find_first = false;
+            let begin_ind;
+            for(let i = 0; i < pole.length; i++){
+                if(pole[i]){
+                    begin_ind = i;
+                    break;
+                }
+            }
+            //console.log(begin_ind);
+            for(let i = begin_ind+1; i <= begin_ind + pole.length; i++){
+                if(pole[round_n(i)]){
+                    status['delts'].push(count);
+                    if(status['max_delta'] < count){
+                        status['max_delta']=count;
+                    }
+                    if(status['min_delta'] > count){
+                        status['min_delta'] = count;
+                    }
+                    count = 0;
+                }else{
+                    count++;
+                }
+            }
+            return status;
+        }
+        
+        function step_f(_pole){
+            let status = status_f(_pole);
+            if(status['count'] == 0){
+                for(let i = 0; i < _pole.length; i++){
+                    click_f(_pole, i);
+                }
+            }
+            else if(status['count'] == 1){
+                click_by_mask([1], _pole, 1);
+                // for(let i = 0; i < pole.length; i++){
+                //     if(pole[i]){
+                //         click_f(i + 1);
+                //         break;
+                //     }
+                // }
+            }
+            else if(status['count'] == 2){
+                if(status['min_delta'] == 0 || status['min_delta'] == 3){
+                    click_by_mask([0, 0, 0, 1], _pole, 1);
+                    // for(let i = 0; i < pole.length; i++){
+                    //     if(!pole[round_n(i)] && !pole[round_n(i - 1)] && !pole[round_n(i + 1)] && pole[round_n(i + 2)]){
+                    //         click_f(i);
+                    //         break;
+                    //     }
+                    // }
+                }
+                else if(status['min_delta'] == 2){      //жмет на ближайший пустой по пути ко второму
+                    click_by_mask([1, 0, 0, 1], _pole, 1);
+                    // let firs_ind = find_first_f(pole);
+                    // if(pole[round_n(firs_ind + 3)]){
+                    //     click_f(firs_ind + 1);
+                    // }else{
+                    //     click_f(firs_ind - 1);
+                    // }
+                }
+                else if(status['min_delta'] == 1){
+                    click_by_mask([1, 0, 1], _pole, 1);
+                    // for(let i = 0; i < pole.length; i++){
+                    //     if(!pole[round_n(i)] && pole[round_n(i - 1)] && pole[round_n(i + 1)]){
+                    //         click_f(i);
+                    //         break;
+                    //     }
+                    // }
+                }
+            }
+            else if(status['count'] == 3){
+                let firs_ind = find_first_f(_pole);
+                if(status['min_delta'] == 0 && status['max_delta'] == 5){   //если три рядом
+                    click_by_mask([1, 1, 1], _pole, 1);
+                    // for(let i = 0; i < pole.length; i++){
+                    //     if(pole[round_n(i)] && pole[round_n(i - 1)] && pole[round_n(i + 1)]){
+                    //         click_f(i);
+                    //         break;
+                    //     }
+                    // }
+                }
+                else if(status['delts'].includes(1)){
+                    click_by_mask([1, 0, 1], _pole, 1);
+                    // for(let i = 0; i < pole.length; i++){
+                    //     if(!pole[round_n(i)] && pole[round_n(i - 1)] && pole[round_n(i + 1)]){
+                    //         click_f(i);
+                    //         break;
+                    //     }
+                    // }
+                }
+                else if(status['min_delta'] == 0){
+                    click_by_mask([1, 1], _pole);
+                    // for(let i = 0; i < pole.length; i++){
+                    //     if(pole[round_n(i)] && pole[round_n(i + 1)]){
+                    //         click_f(i);
+                    //         break;
+                    //     }
+                    // }
+                }
+            }
+            else if(status['count'] == 4){
+                if(click_by_mask([1,1,1,0,1],_pole,1)) return true;
+                if(!click_by_mask([1, 0, 1], _pole, 1))
+                    click_by_mask([1, 1], _pole);
+                // for(let i = 0; i < pole.length; i++){
+                //     if((!pole[round_n(i)] && pole[round_n(i - 1)] && pole[round_n(i + 1)])||(pole[round_n(i)] && pole[round_n(i + 1)])){
+                //         click_f(i);
+                //         break;
+                //     }
+                // }
+            }
+            else if(status['count'] == 5){
+                if(status['min_delta'] == 0 && status['max_delta'] == 3){
+                    click_by_mask([0, 0, 0], _pole, 1);
+                    // for(let i = 0; i < pole.length; i++){
+                    //     if(!pole[round_n(i)] && !pole[round_n(i - 1)] && !pole[round_n(i + 1)]){
+                    //         click_f(i);
+                    //         break;
+                    //     }
+                    // }
+                }
+                else{
+                    if(!click_by_mask([1, 1, 1], _pole, 1))
+                        click_by_mask([1, 1], _pole);
+                    // let complete_click = false;
+                    // for(let i = 0; i < pole.length; i++){
+                    //     if(pole[round_n(i)] && pole[round_n(i - 1)] && pole[round_n(i + 1)]){
+                    //         click_f(i);
+                    //         complete_click = true;
+                    //         break;
+                    //     }
+                    // }
+                    // if(!complete_click)         //если не был совершен клик
+                    //     for(let i = 0; i < pole.length; i++){
+                    //         if(pole[round_n(i)] && pole[round_n(i + 1)]){
+                    //             click_f(i);
+                    //             break;
+                    //         }
+                    //     }
+                }
+            }
+            else if(status['count'] == 6){
+                if(click_by_mask([0, 1, 1, 0], _pole, 1)) return true;
+                if(click_by_mask([1, 1, 1], _pole, 1)) return true;
+                click_by_mask([1, 1], _pole);
+
+                // let complete_click = false;
+                // for(let i = 0; i < pole.length; i++){
+                //     if(pole[round_n(i)] && pole[round_n(i - 1)] && pole[round_n(i + 1)]){
+                //         click_f(i);
+                //         complete_click = true;
+                //         break;
+                //     }
+                // }
+                // if(!complete_click)         //если не был совершен клик
+                //     for(let i = 0; i < pole.length; i++){
+                //         if(pole[round_n(i)] && pole[round_n(i + 1)]){
+                //             click_f(i);
+                //             break;
+                //         }
+                //     }
+            }
+            else if(status['count'] == 7){
+                if(!click_by_mask([1, 1, 1], _pole, 1))
+                    click_by_mask([1, 1], _pole);
+                // let complete_click = false;
+                // for(let i = 0; i < pole.length; i++){
+                //     if(pole[round_n(i)] && pole[round_n(i - 1)] && pole[round_n(i + 1)]){
+                //         click_f(i);
+                //         complete_click = true;
+                //         break;
+                //     }
+                // }
+                // if(!complete_click)         //если не был совершен клик
+                //     for(let i = 0; i < pole.length; i++){
+                //         if(pole[round_n(i)] && pole[round_n(i + 1)]){
+                //             click_f(i);
+                //             break;
+                //         }
+                //     }
+            }
+        }
+
+        function create_history_element(history){
+            let new_div = document.createElement("div");
+            new_div.id = "h_" + history.length;
+            const newContent = document.createTextNode("Step "+history.length);
+            new_div.addEventListener('click', (e)=>{
+                pole = history[get_id(e.target) - 1].slice();
+                set_pole(pole);
+            });
+            new_div.appendChild(newContent);
+            document.getElementById('history_id').appendChild(new_div);
+        }
+
+        function automat_f(){
+            document.getElementById('history_id').innerHTML = "";
+            let history = [];
+            history.push(pole.slice());
+            create_history_element(history);
+
+            while(!check_win(pole)){
+                step_f(pole);
+                history.push(pole.slice());
+                create_history_element(history);
+            }
+            console.log(history);
+        }
+    </script>
+</body>
+</html>
